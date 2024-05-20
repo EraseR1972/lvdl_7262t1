@@ -9,7 +9,7 @@ on:
 jobs:
   build:
     if: ${{ github.event_name != 'pull_request' || github.repository != github.event.pull_request.head.repo.full_name }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         # A valid option parameter to the cmake file.
@@ -59,7 +59,7 @@ jobs:
         CC: cl
 
   test-native:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
      matrix:
        # A valid option parameter to the cmake file.
@@ -73,7 +73,7 @@ jobs:
     - name: Install prerequisites
       run: scripts/install-prerequisites.sh
     - name: Fix kernel mmap rnd bits
-      # Asan in llvm 14 provided in ubuntu 22.04 is incompatible with
+      # Asan in llvm 14 provided in ubuntu 24.04 is incompatible with
       # high-entropy ASLR in much newer kernels that GitHub runners are
       # using leading to random crashes: https://reviews.llvm.org/D148280
       run: sudo sysctl vm.mmap_rnd_bits=28
