@@ -462,8 +462,19 @@ void lv_chart_set_next_value(lv_obj_t * obj, lv_chart_series_t * ser, int32_t va
 
     lv_chart_t * chart  = (lv_chart_t *)obj;
     ser->y_points[ser->start_point] = value;
+    /* If optimization isn't enabled or chart data series aren't updated synchronously, this part makes disturbances.*/
+    if(chart->type == LV_CHART_TYPE_LINE && chart->update_mode == LV_CHART_UPDATE_MODE_CIRCULAR) {
+        for(int32_t i = 1; i < 10; i++) {
+            if(ser->start_point + i < chart->point_cnt)
+                ser->y_points[ser->start_point + i] = LV_CHART_POINT_NONE;
+            else
+                ser->y_points[ser->start_point + i - chart->point_cnt] = LV_CHART_POINT_NONE;
+        }
+    }
     invalidate_point(obj, ser->start_point);
-    ser->start_point = (ser->start_point + 1) % chart->point_cnt;
+    ser->start_point++;
+    if(ser->start_point >= chart->point_cnt)
+        ser->start_point = 0;
     invalidate_point(obj, ser->start_point);
 }
 
@@ -869,6 +880,10 @@ static void draw_series_line(lv_obj_t * obj, lv_layer_t * layer)
                             y_min = y_cur;  /*Start the line of the next x from the current last y*/
                             y_max = y_cur;
                         }
+                    }
+                    else if(ser->y_points[p_prev] == LV_CHART_POINT_NONE && ser->y_points[p_act] != LV_CHART_POINT_NONE) {
+                        y_min = line_dsc.p2.y;
+                        y_max = line_dsc.p2.y;
                     }
                 }
                 else {
