@@ -913,6 +913,23 @@
 /*==================
  * DEVICES
  *==================*/
+#  define LV_USE_WAYLAND       0
+
+#if LV_USE_WAYLAND
+
+#define LV_WAYLAND_TICK_GET 0
+
+/* Support for client-side decorations */
+#  ifndef LV_WAYLAND_CLIENT_SIDE_DECORATIONS
+#    define LV_WAYLAND_CLIENT_SIDE_DECORATIONS 1
+#  endif
+
+/* Support for xdg-shell protocol */
+#  ifndef LV_WAYLAND_XDG_SHELL
+#    define LV_WAYLAND_XDG_SHELL 1
+#  endif
+
+#endif
 
 /*Use SDL to open window on PC and handle mouse and keyboard*/
 #define LV_USE_SDL              0
