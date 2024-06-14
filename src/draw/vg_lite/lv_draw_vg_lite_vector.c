@@ -209,6 +209,7 @@ static void task_draw_cb(void * ctx, const lv_vector_path_t * path, const lv_vec
                     vg_lite_matrix_t grad_matrix, fill_matrix;
                     lv_area_t grad_area;
                     lv_area_set(&grad_area, (int32_t)min_x, (int32_t)min_y, (int32_t)max_x, (int32_t)max_y);
+                    vg_lite_identity(&grad_matrix);
                     lv_vg_lite_grad_area_to_matrix(&grad_matrix, &grad_area, LV_GRAD_DIR_HOR);
 
                     lv_vg_lite_matrix(&fill_matrix, &dsc->fill_dsc.matrix);
