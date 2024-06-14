@@ -21,10 +21,13 @@
 
 #define DECODER_NAME    "VG_LITE"
 
+#define image_cache_draw_buf_handlers &(LV_GLOBAL_DEFAULT()->image_cache_draw_buf_handlers)
+
 /* VG_LITE_INDEX1, 2, and 4 require endian flipping + bit flipping,
  * so for simplicity, they are uniformly converted to I8 for display.
  */
 #define DEST_IMG_FORMAT LV_COLOR_FORMAT_I8
+#define IS_CONV_INDEX_FORMAT(cf) (cf == LV_COLOR_FORMAT_I1 || cf == LV_COLOR_FORMAT_I2 || cf == LV_COLOR_FORMAT_I4)
 
 /* Since the palette and index image are next to each other,
  * the palette size needs to be aligned to ensure that the image is aligned.
@@ -160,12 +163,17 @@ static lv_result_t decoder_info(lv_image_decoder_t * decoder, const void * src, 
         return LV_RESULT_OK;
     }
 
-    if(LV_COLOR_FORMAT_IS_INDEXED(header->cf)) {
-        header->cf = DEST_IMG_FORMAT;
-        return LV_RESULT_OK;
+    if(!IS_CONV_INDEX_FORMAT(header->cf)) {
+        return LV_RESULT_INVALID;
     }
 
-    return LV_RESULT_INVALID;
+    if(header->flags & LV_IMAGE_FLAGS_COMPRESSED) {
+        LV_LOG_WARN("NOT Supported compressed index format: %d", header->cf);
+        return LV_RESULT_INVALID;
+    }
+
+    header->cf = DEST_IMG_FORMAT;
+    return LV_RESULT_OK;
 }
 
 static lv_result_t decoder_open_variable(lv_image_decoder_t * decoder, lv_image_decoder_dsc_t * dsc)
@@ -210,7 +218,8 @@ static lv_result_t decoder_open_variable(lv_image_decoder_t * decoder, lv_image_
     }
 
     /* create draw buf */
-    lv_draw_buf_t * draw_buf = lv_draw_buf_create(width, height, DEST_IMG_FORMAT, LV_STRIDE_AUTO);
+    lv_draw_buf_t * draw_buf = lv_draw_buf_create_user(image_cache_draw_buf_handlers, width, height, DEST_IMG_FORMAT,
+                                                       LV_STRIDE_AUTO);
     if(draw_buf == NULL) {
         return LV_RESULT_INVALID;
     }
@@ -231,7 +240,7 @@ static lv_result_t decoder_open_variable(lv_image_decoder_t * decoder, lv_image_
     /* copy palette */
     lv_memcpy(dest, src, palette_size_bytes);
 
-    if(!dsc->args.premultiply) {
+    if(dsc->args.premultiply) {
         /* pre-multiply palette */
         image_color32_pre_mul((lv_color32_t *)dest, palette_size);
         draw_buf->header.flags |= LV_IMAGE_FLAGS_PREMULTIPLIED;
@@ -247,11 +256,6 @@ static lv_result_t decoder_open_variable(lv_image_decoder_t * decoder, lv_image_
         src += src_stride;
         dest += dest_stride;
     }
-
-    /* invalidate D-Cache */
-    lv_draw_buf_invalidate_cache(draw_buf, NULL);
-    LV_LOG_INFO("image %p (W%" LV_PRId32 " x H%" LV_PRId32 ", buffer: %p, cf: %d) decode finish",
-                image_data, width, height, draw_buf->data, src_cf);
 
     return LV_RESULT_OK;
 }
@@ -282,7 +286,8 @@ static lv_result_t decoder_open_file(lv_image_decoder_t * decoder, lv_image_deco
         return LV_RESULT_INVALID;
     }
 
-    lv_draw_buf_t * draw_buf = lv_draw_buf_create(width, height, DEST_IMG_FORMAT, LV_STRIDE_AUTO);
+    lv_draw_buf_t * draw_buf = lv_draw_buf_create_user(image_cache_draw_buf_handlers, width, height, DEST_IMG_FORMAT,
+                                                       LV_STRIDE_AUTO);
     if(draw_buf == NULL) {
         lv_fs_close(&file);
         return LV_RESULT_INVALID;
@@ -345,12 +350,6 @@ static lv_result_t decoder_open_file(lv_image_decoder_t * decoder, lv_image_deco
     lv_free(src_temp);
 
     lv_fs_close(&file);
-
-    /* invalidate D-Cache */
-    lv_draw_buf_invalidate_cache(draw_buf, NULL);
-
-    LV_LOG_INFO("image %s (W%" LV_PRId32 " x H%" LV_PRId32 ", buffer: %p cf: %d) decode finish",
-                path, width, height, draw_buf->data, src_header.cf);
     return LV_RESULT_OK;
 
 failed:
@@ -424,10 +423,7 @@ static void decoder_close(lv_image_decoder_t * decoder, lv_image_decoder_dsc_t *
 {
     LV_UNUSED(decoder); /*Unused*/
 
-    if(dsc->args.no_cache || !lv_image_cache_is_enabled())
-        decoder_draw_buf_free((lv_draw_buf_t *)dsc->decoded);
-    else
-        lv_cache_release(dsc->cache, dsc->cache_entry, NULL);
+    if(dsc->args.no_cache || !lv_image_cache_is_enabled()) decoder_draw_buf_free((lv_draw_buf_t *)dsc->decoded);
 
     if(decoder->user_data) free(decoder->user_data);
 }
