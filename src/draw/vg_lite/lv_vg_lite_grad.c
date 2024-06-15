@@ -144,7 +144,6 @@ void lv_vg_lite_grad_area_to_matrix(vg_lite_matrix_t * grad_matrix, const lv_are
     LV_ASSERT_NULL(grad_matrix);
     LV_ASSERT_NULL(area);
 
-    vg_lite_identity(grad_matrix);
     vg_lite_translate(area->x1, area->y1, grad_matrix);
 
     switch(dir) {
